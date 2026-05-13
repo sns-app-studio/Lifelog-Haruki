@@ -5,10 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>全員集合！ 🌿 ドリフ・ライフログ (Cloud Ver.)</title>
     <style>
-        /* スタイルは変更なし（そのまま継続） */
+        /* --- 追加：ログイン画面のスタイル --- */
+        #login-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #fad0c4 0%, #8fd3f4 100%);
+            z-index: 9999; display: flex; justify-content: center; align-items: center;
+        }
+        .login-card {
+            background: rgba(255, 255, 255, 0.95); padding: 30px; border-radius: 20px;
+            border: 3px solid #333; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+        .pass-input {
+            width: 100%; padding: 12px; margin: 15px 0; border: 2px solid #333;
+            border-radius: 10px; font-size: 1.2rem; text-align: center;
+        }
+        #error-msg { color: #ff4757; font-weight: bold; margin-bottom: 10px; display: none; }
+
+        /* スタイルは変更なし */
         :root { --primary: #6c5ce7; --high-energy: #ff4757; --card: rgba(255, 255, 255, 0.9); }
         body { font-family: sans-serif; background: linear-gradient(135deg, #fad0c4 0%, #8fd3f4 100%); margin: 0; padding: 10px; }
-        .app { width: 100%; max-width: 900px; margin: 0 auto; }
+        .app { width: 100%; max-width: 900px; margin: 0 auto; display: none; } /* 初期状態は非表示 */
         .card { background: var(--card); border-radius: 20px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 20px; border: 2px solid #333; }
         .title-area { text-align: center; margin-bottom: 20px; background: #000; color: #fff; padding: 15px; border-radius: 10px; border: 3px double #fff; }
         .subtitle { font-size: 0.9rem; color: #ffeb3b; font-weight: bold; }
@@ -34,22 +50,21 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-        // --- 1. Firebase設定 (自分のものに書き換えてください) ---
         const firebaseConfig = {
             apiKey: "AIzaSyCpqB6E5Q97052OvXIxPXm4k3mIG8OV3mo",
-    authDomain: "lifelog-haruki.firebaseapp.com",
-    databaseURL: "https://lifelog-haruki-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "lifelog-haruki",
-    storageBucket: "lifelog-haruki.firebasestorage.app",
-    messagingSenderId: "316762854581",
-    appId: "1:316762854581:web:409959d556af4837b41afc",
-    measurementId: "G-HQ0RLJY4HY"
-  };
+            authDomain: "lifelog-haruki.firebaseapp.com",
+            databaseURL: "https://lifelog-haruki-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "lifelog-haruki",
+            storageBucket: "lifelog-haruki.firebasestorage.app",
+            messagingSenderId: "316762854581",
+            appId: "1:316762854581:web:409959d556af4837b41afc",
+            measurementId: "G-HQ0RLJY4HY"
+        };
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        // --- 2. 内部関数 ---
+        // --- 内部関数 ---
         function speak(text) {
             window.speechSynthesis.cancel();
             const uttr = new SpeechSynthesisUtterance(text);
@@ -66,7 +81,6 @@
             return `${Math.floor(diff/60)}h${diff%60}m`;
         }
 
-        // 履歴表示
         async function showHistory() {
             const snapshot = await get(ref(db, 'logs'));
             const historyObj = snapshot.val() || {};
@@ -104,7 +118,6 @@
                 Object.values(rows).map(r => r + '</tr>').join('') + `</table></div>`;
         }
 
-        // 保存
         async function saveData() {
             const date = document.getElementById('target-date').value;
             if(!date) return alert("日付を選んでョ！");
@@ -129,7 +142,19 @@
             showHistory();
         }
 
-        // --- 3. イベントリスナー (グローバルに関数を紐付け) ---
+        // --- 追加：パスコードチェック ---
+        window.checkPass = () => {
+            const pass = document.getElementById('passcode').value;
+            if(pass === 'snssns') {
+                document.getElementById('login-overlay').style.display = 'none';
+                document.getElementById('main-app').style.display = 'block';
+                showHistory(); // ログイン後に履歴を読み込み
+            } else {
+                document.getElementById('error-msg').style.display = 'block';
+                document.getElementById('passcode').value = '';
+            }
+        };
+
         window.selectMood = (btn, text) => {
             document.querySelectorAll('#mood-group .btn-check').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
@@ -143,16 +168,24 @@
         window.saveData = saveData;
         window.showHistory = showHistory;
 
-        // 初期表示
         const d = document.getElementById('target-date');
         d.value = new Date().toLocaleDateString('sv-SE');
-        showHistory();
-
     </script>
 </head>
 <body>
 
-<div class="app">
+<!-- 追加：ログイン画面 -->
+<div id="login-overlay">
+    <div class="login-card">
+        <div class="subtitle" style="color:#000">8時だョ！</div>
+        <h2>合言葉を入力してョ！</h2>
+        <input type="password" id="passcode" class="pass-input" placeholder="合言葉" onkeydown="if(event.key==='Enter') checkPass()">
+        <p id="error-msg">だめだこりゃ！(合言葉が違うョ)</p>
+        <button class="save-btn" onclick="checkPass()" style="padding:10px; font-size:1rem;">全員集合！</button>
+    </div>
+</div>
+
+<div class="app" id="main-app">
     <div class="card">
         <div class="title-area">
             <div class="subtitle">8時だョ！</div>
