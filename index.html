@@ -66,7 +66,6 @@
             <h1>全員集合！ライフログ🎗️</h1>
         </div>
         <div style="text-align:center; margin-bottom:20px;">
-            <!-- 日付を変えた瞬間に loadFormData を走らせる -->
             <input type="date" id="target-date" style="padding:10px; font-size:1.1rem; border-radius:10px;" onchange="loadFormData()">
         </div>
 
@@ -128,7 +127,6 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // 認証
     window.checkPass = () => {
         const pass = document.getElementById('passcode-field').value;
         if(pass === 'snssns') {
@@ -142,15 +140,8 @@
         }
     };
 
-    // フォームへの復元
-    window.loadFormData = async function() {
-        const date = document.getElementById('target-date').value;
-        if(!date) return;
-
-        const snapshot = await get(ref(db, 'logs/' + date));
-        const data = snapshot.val();
-
-        // 一旦リセット
+    // フォームを真っさらにする関数
+    function resetForm() {
         document.querySelectorAll('.btn-check').forEach(b => b.classList.remove('active'));
         document.getElementById('body-memo').value = "";
         document.getElementById('meal-morning').value = "";
@@ -159,13 +150,24 @@
         document.getElementById('sleepT').value = "22:00";
         document.getElementById('wakeT').value = "06:00";
         document.getElementById('memo').value = "";
+    }
 
+    // データの読み込みロジック
+    window.loadFormData = async function() {
+        const date = document.getElementById('target-date').value;
+        if(!date) return;
+
+        const snapshot = await get(ref(db, 'logs/' + date));
+        const data = snapshot.val();
+
+        // まずは一旦真っさらにする
+        resetForm();
+
+        // その日のデータが保存されていれば、値をセットする
         if (data) {
-            // 気分ボタンの復元
             document.querySelectorAll('#mood-group .btn-check').forEach(btn => {
                 if(btn.querySelector('.emoji').innerText === data.mood) btn.classList.add('active');
             });
-            // 体調ボタンの復元
             document.querySelectorAll('#body-group .btn-check').forEach(btn => {
                 if(btn.querySelector('.emoji').innerText === data.body) btn.classList.add('active');
             });
@@ -176,10 +178,8 @@
                 document.getElementById('meal-lunch').value = data.mealTexts[1] || "";
                 document.getElementById('meal-dinner').value = data.mealTexts[2] || "";
             }
-            // 睡眠時刻を復元（保存されている場合）
             if(data.sleepT) document.getElementById('sleepT').value = data.sleepT;
             if(data.wakeT) document.getElementById('wakeT').value = data.wakeT;
-            
             document.getElementById('memo').value = data.memo || "";
         }
     }
@@ -258,8 +258,8 @@
                 document.getElementById('meal-lunch').value,
                 document.getElementById('meal-dinner').value
             ],
-            sleepT: sleepT, // 時刻自体も保存
-            wakeT: wakeT,   // 時刻自体も保存
+            sleepT: sleepT,
+            wakeT: wakeT,
             duration: calculateSleep(sleepT, wakeT),
             memo: document.getElementById('memo').value
         };
@@ -282,7 +282,6 @@
         speak(text);
     };
 
-    // 初期日付セット
     document.getElementById('target-date').value = new Date().toLocaleDateString('sv-SE');
 </script>
 
