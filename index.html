@@ -140,7 +140,6 @@
         }
     };
 
-    // フォームを真っさらにする関数
     function resetForm() {
         document.querySelectorAll('.btn-check').forEach(b => b.classList.remove('active'));
         document.getElementById('body-memo').value = "";
@@ -152,18 +151,12 @@
         document.getElementById('memo').value = "";
     }
 
-    // データの読み込みロジック
     window.loadFormData = async function() {
         const date = document.getElementById('target-date').value;
         if(!date) return;
-
         const snapshot = await get(ref(db, 'logs/' + date));
         const data = snapshot.val();
-
-        // まずは一旦真っさらにする
         resetForm();
-
-        // その日のデータが保存されていれば、値をセットする
         if (data) {
             document.querySelectorAll('#mood-group .btn-check').forEach(btn => {
                 if(btn.querySelector('.emoji').innerText === data.mood) btn.classList.add('active');
@@ -171,7 +164,6 @@
             document.querySelectorAll('#body-group .btn-check').forEach(btn => {
                 if(btn.querySelector('.emoji').innerText === data.body) btn.classList.add('active');
             });
-            
             document.getElementById('body-memo').value = data.bodyMemo || "";
             if(data.mealTexts) {
                 document.getElementById('meal-morning').value = data.mealTexts[0] || "";
@@ -206,18 +198,15 @@
         const history = Object.values(historyObj).sort((a, b) => new Date(a.date) - new Date(b.date));
         const container = document.getElementById('history-container');
         const monthSelect = document.getElementById('month-select');
-        
         const months = [...new Set(history.map(item => item.date.substring(0, 7)))].sort().reverse();
         if (months.length > 0 && monthSelect.options.length === 0) {
             monthSelect.innerHTML = months.map(m => `<option value="${m}">${m.replace('-', '年')}月</option>`).join('');
         }
-        
         const selectedMonth = monthSelect.value || months[0];
         if (!selectedMonth) {
             container.innerHTML = "<p style='text-align:center;'>記録待ちだョ！</p>";
             return;
         }
-
         const filteredData = history.filter(item => item.date.startsWith(selectedMonth));
         let rows = {
             date: '<tr><th class="label-col">日付</th>',
@@ -227,7 +216,6 @@
             sleep: '<tr><th class="label-col">睡眠</th>',
             memo: '<tr><th class="label-col">メモ</th>'
         };
-
         filteredData.forEach(item => {
             rows.date += `<td class="date-header">${item.date.substring(5)}</td>`;
             rows.mood += `<td>${item.mood}</td>`;
@@ -236,16 +224,13 @@
             rows.sleep += `<td>${item.duration || ''}</td>`;
             rows.memo += `<td style="text-align:left; min-width:150px;">${item.memo || ''}</td>`;
         });
-
-        container.innerHTML = `<div class="month-table-wrap"><table>` + 
-            Object.values(rows).map(r => r + '</tr>').join('') + `</table></div>`;
+        container.innerHTML = `<div class="month-table-wrap"><table>` + Object.values(rows).map(r => r + '</tr>').join('') + `</table></div>`;
     }
 
     window.saveData = async function() {
         const date = document.getElementById('target-date').value;
         const sleepT = document.getElementById('sleepT').value;
         const wakeT = document.getElementById('wakeT').value;
-
         if(!date) return alert("日付を選んでョ！");
 
         const entry = {
@@ -265,7 +250,8 @@
         };
 
         await set(ref(db, 'logs/' + date), entry);
-        speak("次、行ってみよう！");
+        // ここをカタカナに変更して誤読を防止しました
+        speak("つぎ、いってみよう！");
         alert("保存完了！");
         showHistory();
     }
