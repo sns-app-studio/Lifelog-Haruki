@@ -5,26 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>全員集合！ 🌿 ドリフ・ライフログ (Cloud Ver.)</title>
     <style>
-        /* --- 追加：ログイン画面のスタイル --- */
+        :root { --primary: #6c5ce7; --high-energy: #ff4757; --card: rgba(255, 255, 255, 0.9); }
+        body { font-family: sans-serif; background: linear-gradient(135deg, #fad0c4 0%, #8fd3f4 100%); margin: 0; padding: 10px; min-height: 100vh; }
+        
+        /* --- 認証画面のスタイル --- */
         #login-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: linear-gradient(135deg, #fad0c4 0%, #8fd3f4 100%);
             z-index: 9999; display: flex; justify-content: center; align-items: center;
         }
         .login-card {
-            background: rgba(255, 255, 255, 0.95); padding: 30px; border-radius: 20px;
+            background: white; padding: 30px; border-radius: 20px;
             border: 3px solid #333; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            width: 90%; max-width: 320px;
         }
         .pass-input {
             width: 100%; padding: 12px; margin: 15px 0; border: 2px solid #333;
-            border-radius: 10px; font-size: 1.2rem; text-align: center;
+            border-radius: 10px; font-size: 1.2rem; text-align: center; box-sizing: border-box;
         }
-        #error-msg { color: #ff4757; font-weight: bold; margin-bottom: 10px; display: none; }
+        #error-msg { color: #ff4757; font-weight: bold; margin-bottom: 10px; display: none; font-size: 0.9rem; }
 
-        /* スタイルは変更なし */
-        :root { --primary: #6c5ce7; --high-energy: #ff4757; --card: rgba(255, 255, 255, 0.9); }
-        body { font-family: sans-serif; background: linear-gradient(135deg, #fad0c4 0%, #8fd3f4 100%); margin: 0; padding: 10px; }
-        .app { width: 100%; max-width: 900px; margin: 0 auto; display: none; } /* 初期状態は非表示 */
+        /* --- アプリ本体のスタイル（最初は非表示） --- */
+        .app { width: 100%; max-width: 900px; margin: 0 auto; display: none; }
+        
         .card { background: var(--card); border-radius: 20px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 20px; border: 2px solid #333; }
         .title-area { text-align: center; margin-bottom: 20px; background: #000; color: #fff; padding: 15px; border-radius: 10px; border: 3px double #fff; }
         .subtitle { font-size: 0.9rem; color: #ffeb3b; font-weight: bold; }
@@ -36,7 +39,7 @@
         .sub-input { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 10px; box-sizing: border-box; margin-bottom: 20px; }
         .meal-item { display: flex; align-items: center; gap: 10px; background: #f9f9f9; padding: 10px; border-radius: 15px; margin-bottom: 8px; }
         .meal-input { flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 8px; }
-        .row-sleep { display: flex; gap: 10px; margin-bottom: 20px; }
+        .row-sleep { display: flex; gap: 10px; margin-bottom: 20px; align-items: center; justify-content: center; }
         textarea.main-memo { width: 100%; height: 100px; padding: 10px; border-radius: 12px; box-sizing: border-box; }
         .save-btn { width: 100%; background: #ff4757; color: white; border: 4px solid #b33939; padding: 20px; border-radius: 15px; font-weight: bold; font-size: 1.4rem; cursor: pointer; }
         .month-table-wrap { overflow-x: auto; background: #fff; border: 2px solid #333; border-radius: 10px; margin-top: 10px; }
@@ -45,146 +48,21 @@
         th.label-col { background: #333; color: #fff; position: sticky; left: 0; }
         .date-header { background: #ffff00; font-weight: bold; }
     </style>
-
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, set, get, onValue } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyCpqB6E5Q97052OvXIxPXm4k3mIG8OV3mo",
-            authDomain: "lifelog-haruki.firebaseapp.com",
-            databaseURL: "https://lifelog-haruki-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "lifelog-haruki",
-            storageBucket: "lifelog-haruki.firebasestorage.app",
-            messagingSenderId: "316762854581",
-            appId: "1:316762854581:web:409959d556af4837b41afc",
-            measurementId: "G-HQ0RLJY4HY"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-
-        // --- 内部関数 ---
-        function speak(text) {
-            window.speechSynthesis.cancel();
-            const uttr = new SpeechSynthesisUtterance(text);
-            uttr.lang = "ja-JP"; uttr.pitch = 0.4; uttr.rate = 0.8;
-            window.speechSynthesis.speak(uttr);
-        }
-
-        function calculateSleep(s, e) {
-            if(!s || !e) return "-";
-            let [sH, sM] = s.split(':').map(Number);
-            let [eH, eM] = e.split(':').map(Number);
-            let diff = (eH * 60 + eM) - (sH * 60 + sM);
-            if (diff <= 0) diff += 1440;
-            return `${Math.floor(diff/60)}h${diff%60}m`;
-        }
-
-        async function showHistory() {
-            const snapshot = await get(ref(db, 'logs'));
-            const historyObj = snapshot.val() || {};
-            const history = Object.values(historyObj).sort((a, b) => new Date(a.date) - new Date(b.date));
-            const container = document.getElementById('history-container');
-            const monthSelect = document.getElementById('month-select');
-            
-            const months = [...new Set(history.map(item => item.date.substring(0, 7)))].sort().reverse();
-            if (months.length > 0 && !monthSelect.value) monthSelect.innerHTML = months.map(m => `<option value="${m}">${m}</option>`).join('');
-            
-            const selectedMonth = monthSelect.value || months[0];
-            if (!selectedMonth) return container.innerHTML = "記録待ちだョ！";
-
-            const filteredData = history.filter(item => item.date.startsWith(selectedMonth));
-            
-            let rows = {
-                date: '<tr><th class="label-col">日付</th>',
-                mood: '<tr><th class="label-col">気分</th>',
-                body: '<tr><th class="label-col">体調</th>',
-                meals: '<tr><th class="label-col">食事</th>',
-                sleep: '<tr><th class="label-col">睡眠</th>',
-                memo: '<tr><th class="label-col">メモ</th>'
-            };
-
-            filteredData.forEach(item => {
-                rows.date += `<td class="date-header">${item.date.substring(5)}</td>`;
-                rows.mood += `<td>${item.mood}</td>`;
-                rows.body += `<td>${item.body}<br><small>${item.bodyMemo || ''}</small></td>`;
-                rows.meals += `<td style="text-align:left;">${(item.mealTexts || []).join('<br>')}</td>`;
-                rows.sleep += `<td>${item.duration || ''}</td>`;
-                rows.memo += `<td style="text-align:left; min-width:120px;">${item.memo || ''}</td>`;
-            });
-
-            container.innerHTML = `<div class="month-table-wrap"><table>` + 
-                Object.values(rows).map(r => r + '</tr>').join('') + `</table></div>`;
-        }
-
-        async function saveData() {
-            const date = document.getElementById('target-date').value;
-            if(!date) return alert("日付を選んでョ！");
-
-            const entry = {
-                date: date,
-                mood: document.querySelector('#mood-group .active .emoji')?.innerText || "？",
-                body: document.querySelector('#body-group .active .emoji')?.innerText || "？",
-                bodyMemo: document.getElementById('body-memo').value,
-                mealTexts: [
-                    document.getElementById('meal-morning').value,
-                    document.getElementById('meal-lunch').value,
-                    document.getElementById('meal-dinner').value
-                ],
-                duration: calculateSleep(document.getElementById('sleepT').value, document.getElementById('wakeT').value),
-                memo: document.getElementById('memo').value
-            };
-
-            await set(ref(db, 'logs/' + date), entry);
-            speak("次、行ってみよう！");
-            alert("保存完了！");
-            showHistory();
-        }
-
-        // --- 追加：パスコードチェック ---
-        window.checkPass = () => {
-            const pass = document.getElementById('passcode').value;
-            if(pass === 'snssns') {
-                document.getElementById('login-overlay').style.display = 'none';
-                document.getElementById('main-app').style.display = 'block';
-                showHistory(); // ログイン後に履歴を読み込み
-            } else {
-                document.getElementById('error-msg').style.display = 'block';
-                document.getElementById('passcode').value = '';
-            }
-        };
-
-        window.selectMood = (btn, text) => {
-            document.querySelectorAll('#mood-group .btn-check').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            speak(text);
-        };
-        window.selectBody = (btn, text) => {
-            document.querySelectorAll('#body-group .btn-check').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            speak(text);
-        };
-        window.saveData = saveData;
-        window.showHistory = showHistory;
-
-        const d = document.getElementById('target-date');
-        d.value = new Date().toLocaleDateString('sv-SE');
-    </script>
 </head>
 <body>
 
-<!-- 追加：ログイン画面 -->
+<!-- 1. 認証画面 -->
 <div id="login-overlay">
     <div class="login-card">
         <div class="subtitle" style="color:#000">8時だョ！</div>
-        <h2>合言葉を入力してョ！</h2>
-        <input type="password" id="passcode" class="pass-input" placeholder="合言葉" onkeydown="if(event.key==='Enter') checkPass()">
+        <h2 style="margin: 10px 0;">合言葉を入力してョ！</h2>
+        <input type="password" id="passcode-field" class="pass-input" placeholder="合言葉" onkeydown="if(event.key==='Enter') checkPass()">
         <p id="error-msg">だめだこりゃ！(合言葉が違うョ)</p>
-        <button class="save-btn" onclick="checkPass()" style="padding:10px; font-size:1rem;">全員集合！</button>
+        <button class="save-btn" onclick="checkPass()" style="padding:10px; font-size:1.1rem; border-width:2px;">全員集合！</button>
     </div>
 </div>
 
+<!-- 2. アプリ本体 -->
 <div class="app" id="main-app">
     <div class="card">
         <div class="title-area">
@@ -218,8 +96,8 @@
         <div class="meal-item">晩：<input type="text" id="meal-dinner" class="meal-input"></div>
         
         <div class="row-sleep">
-            寝：<input type="time" id="sleepT" value="22:00">
-            起：<input type="time" id="wakeT" value="06:00">
+            寝：<input type="time" id="sleepT" value="22:00" style="padding:5px; border-radius:5px;">
+            起：<input type="time" id="wakeT" value="06:00" style="padding:5px; border-radius:5px;">
         </div>
 
         <textarea id="memo" class="main-memo" placeholder="自由帳"></textarea>
@@ -228,12 +106,145 @@
 
     <div class="card">
         <h2 style="text-align:center;">📊 履歴</h2>
-        <div style="text-align:center;">
-            <select id="month-select" onchange="showHistory()" style="padding:5px; border-radius:5px;"></select>
+        <div style="text-align:center; margin-bottom:10px;">
+            <select id="month-select" onchange="showHistory()" style="padding:8px; border-radius:8px; border:2px solid #333;"></select>
         </div>
         <div id="history-container"></div>
     </div>
 </div>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    // --- Firebase設定 ---
+    const firebaseConfig = {
+        apiKey: "AIzaSyCpqB6E5Q97052OvXIxPXm4k3mIG8OV3mo",
+        authDomain: "lifelog-haruki.firebaseapp.com",
+        databaseURL: "https://lifelog-haruki-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "lifelog-haruki",
+        storageBucket: "lifelog-haruki.firebasestorage.app",
+        messagingSenderId: "316762854581",
+        appId: "1:316762854581:web:409959d556af4837b41afc",
+        measurementId: "G-HQ0RLJY4HY"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // --- 認証ロジック ---
+    window.checkPass = () => {
+        const pass = document.getElementById('passcode-field').value;
+        if(pass === 'snssns') {
+            document.getElementById('login-overlay').style.display = 'none';
+            document.getElementById('main-app').style.display = 'block';
+            showHistory(); // ログイン成功後に履歴を表示
+        } else {
+            document.getElementById('error-msg').style.display = 'block';
+            document.getElementById('passcode-field').value = '';
+        }
+    };
+
+    // --- ライフログ機能 ---
+    function speak(text) {
+        window.speechSynthesis.cancel();
+        const uttr = new SpeechSynthesisUtterance(text);
+        uttr.lang = "ja-JP"; uttr.pitch = 0.4; uttr.rate = 0.8;
+        window.speechSynthesis.speak(uttr);
+    }
+
+    function calculateSleep(s, e) {
+        if(!s || !e) return "-";
+        let [sH, sM] = s.split(':').map(Number);
+        let [eH, eM] = e.split(':').map(Number);
+        let diff = (eH * 60 + eM) - (sH * 60 + sM);
+        if (diff <= 0) diff += 1440;
+        return `${Math.floor(diff/60)}h${diff%60}m`;
+    }
+
+    window.showHistory = async function() {
+        const snapshot = await get(ref(db, 'logs'));
+        const historyObj = snapshot.val() || {};
+        const history = Object.values(historyObj).sort((a, b) => new Date(a.date) - new Date(b.date));
+        const container = document.getElementById('history-container');
+        const monthSelect = document.getElementById('month-select');
+        
+        const months = [...new Set(history.map(item => item.date.substring(0, 7)))].sort().reverse();
+        
+        // セレクトボックスの更新（初回または変更時）
+        if (months.length > 0 && monthSelect.options.length === 0) {
+            monthSelect.innerHTML = months.map(m => `<option value="${m}">${m.replace('-', '年')}月</option>`).join('');
+        }
+        
+        const selectedMonth = monthSelect.value || months[0];
+        if (!selectedMonth) {
+            container.innerHTML = "<p style='text-align:center;'>記録待ちだョ！</p>";
+            return;
+        }
+
+        const filteredData = history.filter(item => item.date.startsWith(selectedMonth));
+        
+        let rows = {
+            date: '<tr><th class="label-col">日付</th>',
+            mood: '<tr><th class="label-col">気分</th>',
+            body: '<tr><th class="label-col">体調</th>',
+            meals: '<tr><th class="label-col">食事</th>',
+            sleep: '<tr><th class="label-col">睡眠</th>',
+            memo: '<tr><th class="label-col">メモ</th>'
+        };
+
+        filteredData.forEach(item => {
+            rows.date += `<td class="date-header">${item.date.substring(5)}</td>`;
+            rows.mood += `<td>${item.mood}</td>`;
+            rows.body += `<td>${item.body}<br><small>${item.bodyMemo || ''}</small></td>`;
+            rows.meals += `<td style="text-align:left;">${(item.mealTexts || []).join('<br>')}</td>`;
+            rows.sleep += `<td>${item.duration || ''}</td>`;
+            rows.memo += `<td style="text-align:left; min-width:150px;">${item.memo || ''}</td>`;
+        });
+
+        container.innerHTML = `<div class="month-table-wrap"><table>` + 
+            Object.values(rows).map(r => r + '</tr>').join('') + `</table></div>`;
+    }
+
+    window.saveData = async function() {
+        const date = document.getElementById('target-date').value;
+        if(!date) return alert("日付を選んでョ！");
+
+        const entry = {
+            date: date,
+            mood: document.querySelector('#mood-group .active .emoji')?.innerText || "？",
+            body: document.querySelector('#body-group .active .emoji')?.innerText || "？",
+            bodyMemo: document.getElementById('body-memo').value,
+            mealTexts: [
+                document.getElementById('meal-morning').value,
+                document.getElementById('meal-lunch').value,
+                document.getElementById('meal-dinner').value
+            ],
+            duration: calculateSleep(document.getElementById('sleepT').value, document.getElementById('wakeT').value),
+            memo: document.getElementById('memo').value
+        };
+
+        await set(ref(db, 'logs/' + date), entry);
+        speak("次、行ってみよう！");
+        alert("保存完了！");
+        showHistory();
+    }
+
+    window.selectMood = (btn, text) => {
+        document.querySelectorAll('#mood-group .btn-check').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        speak(text);
+    };
+
+    window.selectBody = (btn, text) => {
+        document.querySelectorAll('#body-group .btn-check').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        speak(text);
+    };
+
+    // 初期設定
+    document.getElementById('target-date').value = new Date().toLocaleDateString('sv-SE');
+</script>
 
 </body>
 </html>
