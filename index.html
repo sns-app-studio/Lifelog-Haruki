@@ -8,7 +8,6 @@
         :root { --primary: #6c5ce7; --high-energy: #ff4757; --card: rgba(255, 255, 255, 0.9); }
         body { font-family: sans-serif; background: linear-gradient(135deg, #fad0c4 0%, #8fd3f4 100%); margin: 0; padding: 10px; min-height: 100vh; }
         
-        /* --- 認証画面のスタイル --- */
         #login-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: linear-gradient(135deg, #fad0c4 0%, #8fd3f4 100%);
@@ -25,7 +24,6 @@
         }
         #error-msg { color: #ff4757; font-weight: bold; margin-bottom: 10px; display: none; font-size: 0.9rem; }
 
-        /* --- アプリ本体のスタイル（最初は非表示） --- */
         .app { width: 100%; max-width: 900px; margin: 0 auto; display: none; }
         
         .card { background: var(--card); border-radius: 20px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 20px; border: 2px solid #333; }
@@ -51,7 +49,6 @@
 </head>
 <body>
 
-<!-- 1. 認証画面 -->
 <div id="login-overlay">
     <div class="login-card">
         <div class="subtitle" style="color:#000">8時だョ！</div>
@@ -62,7 +59,6 @@
     </div>
 </div>
 
-<!-- 2. アプリ本体 -->
 <div class="app" id="main-app">
     <div class="card">
         <div class="title-area">
@@ -70,7 +66,7 @@
             <h1>全員集合！ライフログ🎗️</h1>
         </div>
         <div style="text-align:center; margin-bottom:20px;">
-            <input type="date" id="target-date" style="padding:10px; font-size:1.1rem; border-radius:10px;">
+            <input type="date" id="target-date" style="padding:10px; font-size:1.1rem; border-radius:10px;" onchange="loadFormData()">
         </div>
 
         <h2>① 気分</h2>
@@ -117,7 +113,6 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
-    // --- Firebase設定 ---
     const firebaseConfig = {
         apiKey: "AIzaSyCpqB6E5Q97052OvXIxPXm4k3mIG8OV3mo",
         authDomain: "lifelog-haruki.firebaseapp.com",
@@ -132,20 +127,63 @@
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
-    // --- 認証ロジック ---
     window.checkPass = () => {
         const pass = document.getElementById('passcode-field').value;
         if(pass === 'snssns') {
             document.getElementById('login-overlay').style.display = 'none';
             document.getElementById('main-app').style.display = 'block';
-            showHistory(); // ログイン成功後に履歴を表示
+            loadFormData(); // ログイン時にデータ読み込み
+            showHistory(); 
         } else {
             document.getElementById('error-msg').style.display = 'block';
             document.getElementById('passcode-field').value = '';
         }
     };
 
-    // --- ライフログ機能 ---
+    // --- フォームへの読み込み機能 ---
+    window.loadFormData = async function() {
+        const date = document.getElementById('target-date').value;
+        if(!date) return;
+
+        const snapshot = await get(ref(db, 'logs/' + date));
+        const data = snapshot.val();
+
+        // フォームのリセット
+        document.querySelectorAll('.btn-check').forEach(b => b.classList.remove('active'));
+        document.getElementById('body-memo').value = "";
+        document.getElementById('meal-morning').value = "";
+        document.getElementById('meal-lunch').value = "";
+        document.getElementById('meal-dinner').value = "";
+        document.getElementById('sleepT').value = "22:00";
+        document.getElementById('wakeT').value = "06:00";
+        document.getElementById('memo').value = "";
+
+        if (data) {
+            // 気分
+            const moodBtns = document.querySelectorAll('#mood-group .btn-check');
+            moodBtns.forEach(btn => {
+                if(btn.querySelector('.emoji').innerText === data.mood) btn.classList.add('active');
+            });
+            // 体調
+            const bodyBtns = document.querySelectorAll('#body-group .btn-check');
+            bodyBtns.forEach(btn => {
+                if(btn.querySelector('.emoji').innerText === data.body) btn.classList.add('active');
+            });
+            
+            document.getElementById('body-memo').value = data.bodyMemo || "";
+            if(data.mealTexts) {
+                document.getElementById('meal-morning').value = data.mealTexts[0] || "";
+                document.getElementById('meal-lunch').value = data.mealTexts[1] || "";
+                document.getElementById('meal-dinner').value = data.mealTexts[2] || "";
+            }
+            
+            // 睡眠時間の復元（durationではなく保存時の時間が必要なため保存時に入力値も入れるのが理想ですが、
+            // 今回は他を変えないため履歴から推測等はせず、空かデフォルトにします。
+            // ※もし睡眠時間も復元したい場合は保存項目にsleepT/wakeTを追加する必要があります）
+            document.getElementById('memo').value = data.memo || "";
+        }
+    }
+
     function speak(text) {
         window.speechSynthesis.cancel();
         const uttr = new SpeechSynthesisUtterance(text);
@@ -170,8 +208,6 @@
         const monthSelect = document.getElementById('month-select');
         
         const months = [...new Set(history.map(item => item.date.substring(0, 7)))].sort().reverse();
-        
-        // セレクトボックスの更新（初回または変更時）
         if (months.length > 0 && monthSelect.options.length === 0) {
             monthSelect.innerHTML = months.map(m => `<option value="${m}">${m.replace('-', '年')}月</option>`).join('');
         }
@@ -183,7 +219,6 @@
         }
 
         const filteredData = history.filter(item => item.date.startsWith(selectedMonth));
-        
         let rows = {
             date: '<tr><th class="label-col">日付</th>',
             mood: '<tr><th class="label-col">気分</th>',
@@ -242,7 +277,6 @@
         speak(text);
     };
 
-    // 初期設定
     document.getElementById('target-date').value = new Date().toLocaleDateString('sv-SE');
 </script>
 
